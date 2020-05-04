@@ -15,13 +15,16 @@
 import unittest
 import json
 
-from ops import framework
 from ops.charm import CharmBase
 from ops import testing
 from ops import model
+from ops import framework
 
 import ca_client
-from ca_client_test_data import TEST_RELATION_DATA
+from test.ca_client_test_data import (
+    TEST_RELATION_DATA,
+    get_multi_rq_relation_data_server,
+    get_multi_rq_relation_data_client)
 
 
 class TestCAClient(unittest.TestCase):
@@ -55,8 +58,9 @@ class TestCAClient(unittest.TestCase):
         relation_id = self.harness.add_relation('ca-client', 'easyrsa')
         self.assertTrue(self.ca_client.is_joined)
 
-        self.harness.add_relation_unit(relation_id, 'easyrsa/0',
-                                       {'ingress-address': '192.0.2.2'})
+        self.harness.add_relation_unit(relation_id, 'easyrsa/0')
+        self.harness.update_relation_data(relation_id, 'easyrsa/0',
+                                          {'ingress-address': '192.0.2.2'})
 
         self.assertTrue(len(receiver.observed_events) == 1)
         self.assertIsInstance(receiver.observed_events[0],
@@ -68,8 +72,9 @@ class TestCAClient(unittest.TestCase):
         self.harness.update_relation_data(
             relation_id, 'myserver/0', {'ingress-address': '192.0.2.1'})
 
-        self.harness.add_relation_unit(relation_id, 'easyrsa/0',
-                                       {'ingress-address': '192.0.2.2'})
+        self.harness.add_relation_unit(relation_id, 'easyrsa/0')
+        self.harness.update_relation_data(relation_id, 'easyrsa/0',
+                                          {'ingress-address': '192.0.2.2'})
         rel = self.harness.charm.model.get_relation('ca-client')
 
         # Cannot obtain {certificate, key, ca_certificate} before
@@ -117,45 +122,72 @@ class TestCAClient(unittest.TestCase):
         self.assertEqual(server_data['common_name'], new_example_hostname)
         self.assertEqual(server_data['sans'], json.dumps(new_sans))
 
-    def test__on_relation_changed(self):
+    def prepare_on_relation_changed_test(self, client_data, server_data):
 
         class TestReceiver(framework.Object):
 
             def __init__(self, parent, key):
                 super().__init__(parent, key)
-                self.observed_events = []
+                self.observed_events = {
+                    'legacy': [],
+                    'server': [],
+                    'application': [],
+                    'client': []}
 
             def on_tls_config_ready(self, event):
-                self.observed_events.append(event)
+                self.observed_events['legacy'].append(event)
 
-        receiver = TestReceiver(self.harness.framework, 'receiver')
-        self.harness.framework.observe(self.ca_client.on.tls_config_ready,
-                                       receiver)
+            def on_tls_app_config_ready(self, event):
+                self.observed_events['application'].append(event)
 
-        relation_id = self.harness.add_relation('ca-client', 'easyrsa')
+            def on_tls_server_config_ready(self, event):
+                self.observed_events['server'].append(event)
+
+            def on_tls_client_config_ready(self, event):
+                self.observed_events['client'].append(event)
+
+        self.receiver = TestReceiver(self.harness.framework, 'receiver')
+        self.harness.framework.observe(
+            self.ca_client.on.tls_config_ready,
+            self.receiver)
+        self.harness.framework.observe(
+            self.ca_client.on.tls_app_config_ready,
+            self.receiver)
+        self.harness.framework.observe(
+            self.ca_client.on.tls_client_config_ready,
+            self.receiver)
+        self.harness.framework.observe(
+            self.ca_client.on.tls_server_config_ready,
+            self.receiver)
+
+        self.relation_id = self.harness.add_relation('ca-client', 'easyrsa')
         self.harness.update_relation_data(
-            relation_id, 'myserver/0',
+            self.relation_id, 'myserver/0',
             {'ingress-address': '10.209.240.176'})
 
-        self.harness.add_relation_unit(relation_id, 'easyrsa/0',
-                                       {'ingress-address': '192.0.2.2'})
-
+        self.harness.add_relation_unit(self.relation_id, 'easyrsa/0')
+        self.harness.update_relation_data(self.relation_id, 'easyrsa/0',
+                                          {'ingress-address': '192.0.2.2'})
         self.harness.update_relation_data(
-            relation_id, 'myserver/0', {
-                'ingress-address': '10.209.240.176',
-                'common_name': '10.209.240.176',
-                'sans': '10.209.240.176',
-            }
-        )
+            self.relation_id,
+            'myserver/0',
+            client_data)
         # The certificates and a key were generated once for the purposes
         # of creating an example. They are not used anywhere in
         # a production or test system.
-        ca_client_data = TEST_RELATION_DATA
-        self.harness.update_relation_data(relation_id, 'easyrsa/0',
-                                          ca_client_data)
+        self.harness.update_relation_data(self.relation_id, 'easyrsa/0',
+                                          server_data)
 
-        self.assertTrue(len(receiver.observed_events) == 1)
-        self.assertIsInstance(receiver.observed_events[0],
+    def test__on_relation_changed(self):
+        self.prepare_on_relation_changed_test(
+            {
+                'ingress-address': '10.209.240.176',
+                'common_name': '10.209.240.176',
+                'sans': json.dumps(['10.209.240.176'])},
+            TEST_RELATION_DATA)
+
+        self.assertTrue(len(self.receiver.observed_events['legacy']) == 1)
+        self.assertIsInstance(self.receiver.observed_events['legacy'][0],
                               ca_client.TLSConfigReady)
 
         # Validate that the properties of certs and keys match
@@ -166,6 +198,94 @@ class TestCAClient(unittest.TestCase):
         self.assertEqual(self.ca_client.key.public_key().public_numbers().e,
                          65537)
         self.assertTrue(self.ca_client.is_ready)
+
+    def test__on_relation_changed_ca_chain(self):
+        self.prepare_on_relation_changed_test(
+            get_multi_rq_relation_data_client(),
+            get_multi_rq_relation_data_server())
+        self.assertEqual(
+            self.ca_client.ca_certificate.serial_number,
+            192863404968765739414495968089296236155169528104)
+        self.assertEqual(
+            self.ca_client.root_ca_chain.serial_number,
+            364727974956649209413854240588010868175254941108)
+
+        # Validate that the properties of certs and keys match
+        # the ones exposed.
+        self.assertEqual(
+            self.ca_client.ca_certificate.serial_number,
+            192863404968765739414495968089296236155169528104)
+        self.assertEqual(
+            self.ca_client.root_ca_chain.serial_number,
+            364727974956649209413854240588010868175254941108)
+
+    def test__on_relation_changed_app_cert(self):
+        self.prepare_on_relation_changed_test(
+            get_multi_rq_relation_data_client(),
+            get_multi_rq_relation_data_server())
+        self.assertTrue(len(self.receiver.observed_events['application']) == 1)
+        self.assertIsInstance(self.receiver.observed_events['application'][0],
+                              ca_client.TLSConfigReady)
+
+        # Validate that the properties of certs and keys match
+        # the ones exposed.
+        self.assertEqual(
+            self.ca_client.application_certificate.serial_number,
+            545775603358522149900500872541885055132503562027)
+        self.assertEqual(
+            self.ca_client.application_key.public_key().public_numbers().e,
+            65537)
+        self.assertTrue(self.ca_client.is_application_cert_ready)
+
+    def test__on_relation_changed_server_cert(self):
+        self.prepare_on_relation_changed_test(
+            get_multi_rq_relation_data_client(),
+            get_multi_rq_relation_data_server())
+        self.assertTrue(len(self.receiver.observed_events['server']) == 1)
+        self.assertIsInstance(self.receiver.observed_events['server'][0],
+                              ca_client.TLSConfigReady)
+
+        # Validate that the properties of certs and keys match
+        # the ones exposed.
+        self.assertEqual(
+            self.ca_client.server_certificate.serial_number,
+            278879076309639781313885930372307854071574482585)
+        self.assertEqual(
+            self.ca_client.server_key.public_key().public_numbers().e,
+            65537)
+        self.assertTrue(self.ca_client.is_application_cert_ready)
+        certs = self.ca_client.server_certs
+        self.assertEqual(
+            certs['server1']['cert'].serial_number,
+            278879076309639781313885930372307854071574482585)
+        self.assertEqual(
+            certs['server2']['cert'].serial_number,
+            500144078276114303654132221008280693054965976604)
+
+    def test__on_relation_changed_client_cert(self):
+        self.prepare_on_relation_changed_test(
+            get_multi_rq_relation_data_client(),
+            get_multi_rq_relation_data_server())
+        self.assertTrue(len(self.receiver.observed_events['client']) == 1)
+        self.assertIsInstance(self.receiver.observed_events['client'][0],
+                              ca_client.TLSConfigReady)
+
+        # Validate that the properties of certs and keys match
+        # the ones exposed.
+        self.assertEqual(
+            self.ca_client.client_certificate.serial_number,
+            317090354556363424911379458510806571627459623032)
+        self.assertEqual(
+            self.ca_client.client_key.public_key().public_numbers().e,
+            65537)
+        self.assertTrue(self.ca_client.is_application_cert_ready)
+        certs = self.ca_client.client_certs
+        self.assertEqual(
+            certs['client1']['cert'].serial_number,
+            317090354556363424911379458510806571627459623032)
+        self.assertEqual(
+            certs['client2']['cert'].serial_number,
+            554251068938213429919465619370496662368340363424)
 
 
 if __name__ == "__main__":

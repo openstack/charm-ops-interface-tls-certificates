@@ -1,0 +1,7 @@
+# Lint and unit test requirements
+flake8
+stestr>=2.2.0
+mock>=1.2
+coverage>=3.6
+cryptography
+git+https://github.com/canonical/operator.git#egg=ops

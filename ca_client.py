@@ -17,7 +17,7 @@
 
 `CAClient`_ is the type providing integration with a certificate authority
 charm providing the tls-certificates interface. CAClient can be used to
-request server, client or application certifcates. Only one application
+request server, client or application certificates. Only one application
 certificate may be requested but multiple client and server requests are
 supported.
 
@@ -187,9 +187,15 @@ class CAClient(Object):
         self._common_name = None
         self._sans = None
         self._munged_name = self.model.unit.name.replace("/", "_")
-        self._stored.set_default(ca_certificate=None, key=None,
-                                 certificate=None, root_ca_chain=None)
-
+        self._stored.set_default(
+            ca_certificate=None,
+            key=None,
+            certificate=None,
+            root_ca_chain=None,
+            legacy=None,
+            client=None,
+            server=None,
+            application=None)
         self.framework.observe(charm.on[relation_name].relation_joined,
                                self._on_relation_joined)
         self.framework.observe(charm.on[relation_name].relation_changed,
@@ -225,7 +231,7 @@ class CAClient(Object):
         try:
             return all([
                 self.ca_certificate,
-                getattr(self._stored, cert_type, None)])
+                getattr(self._stored, cert_type)])
         except CAClientError:
             return False
 
@@ -271,7 +277,7 @@ class CAClient(Object):
             raise CAClientError(BlockedStatus,
                                 'a certificate request has not been sent',
                                 self._relation_name)
-        crypto_data = getattr(self._stored, request_type, None)
+        crypto_data = getattr(self._stored, request_type)
         if not crypto_data:
             raise CAClientError(
                 WaitingStatus,

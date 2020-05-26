@@ -12,6 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import yaml
+
+
+def get_yaml_test_data(file_name):
+    with open('./test/{}'.format(file_name), 'r') as data_file:
+        test_data = yaml.load(data_file, Loader=yaml.SafeLoader)
+    return test_data
+
+
+def get_multi_rq_relation_data_server():
+    return get_yaml_test_data('multi_cert_rel_test_data_server.yaml')
+
+
+def get_multi_rq_relation_data_client():
+    return get_yaml_test_data('multi_cert_rel_test_data_client.yaml')
+
 
 TEST_RELATION_DATA = {
     'ca': '''-----BEGIN CERTIFICATE-----

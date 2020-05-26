@@ -1,0 +1,11 @@
+application_cert_requests: '{"app": {"sans": ["appunit1", "appunit2", "172.0.0.1",
+  "172.0.0.2"]}}'
+cert_requests: '{"server1": {"sans": ["serveralt1", "172.0.0.3"]}, "server2": {"sans":
+  ["serveralt1", "172.0.0.4"]}}'
+client_cert_requests: '{"client1": {"sans": ["clientalt1", "172.0.0.5"]}, "client2":
+  {"sans": ["clientalt2", "172.0.0.6"]}}'
+common_name: server2
+egress-subnets: 172.20.0.7/32
+ingress-address: 172.20.0.7
+private-address: 172.20.0.7
+sans: '["serveralt1", "172.0.0.4"]'

@@ -20,7 +20,8 @@ from ops import testing
 from ops import model
 from ops import framework
 
-import ca_client
+import interface_tls_certificates.ca_client as ca_client
+
 from test.ca_client_test_data import (
     TEST_RELATION_DATA,
     get_multi_rq_relation_data_server,

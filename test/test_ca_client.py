@@ -54,7 +54,7 @@ class TestCAClient(unittest.TestCase):
 
         receiver = TestReceiver(self.harness.framework, 'receiver')
         self.harness.framework.observe(self.ca_client.on.ca_available,
-                                       receiver)
+                                       receiver.on_ca_available)
 
         relation_id = self.harness.add_relation('ca-client', 'easyrsa')
         self.assertTrue(self.ca_client.is_joined)
@@ -150,16 +150,16 @@ class TestCAClient(unittest.TestCase):
         self.receiver = TestReceiver(self.harness.framework, 'receiver')
         self.harness.framework.observe(
             self.ca_client.on.tls_config_ready,
-            self.receiver)
+            self.receiver.on_tls_config_ready)
         self.harness.framework.observe(
             self.ca_client.on.tls_app_config_ready,
-            self.receiver)
+            self.receiver.on_tls_app_config_ready)
         self.harness.framework.observe(
             self.ca_client.on.tls_client_config_ready,
-            self.receiver)
+            self.receiver.on_tls_server_config_ready)
         self.harness.framework.observe(
             self.ca_client.on.tls_server_config_ready,
-            self.receiver)
+            self.receiver.on_tls_client_config_ready)
 
         self.relation_id = self.harness.add_relation('ca-client', 'easyrsa')
         self.harness.update_relation_data(

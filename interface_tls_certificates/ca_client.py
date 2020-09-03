@@ -507,8 +507,10 @@ class CAClient(Object):
         if rel is None:
             raise CAClientError(BlockedStatus, 'missing relation',
                                 self._relation_name)
-        logger.info('Requesting a CA certificate. Common name: {}, SANS: {}'
-                    ''.format(common_name, sans))
+        logger.info(
+            'Requesting a CA certificate. Common name: %s, SANS: %s',
+            common_name,
+            sans)
         requests = rel.data[self.model.unit].get(key, '{}')
         requests = json.loads(requests)
         requests[common_name] = {'sans': sans}

@@ -676,10 +676,7 @@ class CAClient(Object):
                     message = (
                         'A CA has not yet processed requests: {}'.format(key))
                     logger.info(message)
-                    raise CAClientError(
-                        WaitingStatus,
-                        message,
-                        self._relation_name)
+                    continue
             else:
                 # All requests of this type have completed so emit the
                 # corresponding event

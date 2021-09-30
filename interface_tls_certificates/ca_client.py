@@ -522,6 +522,9 @@ class CAClient(Object):
             rel_data = rel.data[self.model.unit]
             rel_data['common_name'] = common_name
             rel_data['sans'] = json.dumps(sans)
+        # Explicit set of unit_name needed to support use of
+        # this interface in cross model contexts.
+        rel_data['unit_name'] = self.model.unit.name
 
     request_server_certificate = functools.partialmethod(
         request_certificate,

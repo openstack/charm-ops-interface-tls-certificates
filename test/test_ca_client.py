@@ -99,6 +99,8 @@ class TestCAClient(unittest.TestCase):
         server_data = rel.data[self.harness.charm.model.unit]
         self.assertEqual(server_data['common_name'], example_hostname)
         self.assertEqual(server_data['sans'], json.dumps(sans))
+        self.assertEqual(server_data['unit_name'],
+                         self.harness.charm.model.unit.name)
 
         # Waiting for more relation data now - check for WaitingStatus
         # in the exception.
@@ -122,6 +124,8 @@ class TestCAClient(unittest.TestCase):
                                                   new_sans)
         self.assertEqual(server_data['common_name'], new_example_hostname)
         self.assertEqual(server_data['sans'], json.dumps(new_sans))
+        self.assertEqual(server_data['unit_name'],
+                         self.harness.charm.model.unit.name)
 
     def prepare_on_relation_changed_test(self, client_data, server_data):
 

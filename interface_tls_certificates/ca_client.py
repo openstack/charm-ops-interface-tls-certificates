@@ -517,9 +517,9 @@ class CAClient(Object):
         rel.data[self.model.unit][key] = json.dumps(
             requests,
             sort_keys=True)
+        rel_data = rel.data[self.model.unit]
         if certificate_type == 'server':
             # for backwards compatibility, request goes in its own fields
-            rel_data = rel.data[self.model.unit]
             rel_data['common_name'] = common_name
             rel_data['sans'] = json.dumps(sans)
         # Explicit set of unit_name needed to support use of
